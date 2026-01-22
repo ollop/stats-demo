@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inferential Stats Demo</title>
+
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 20px;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    h1 { font-size: 26px; margin: 0 0 10px 0; }
+
+    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+
+    .card {
+      border: 1px solid #e5e5e5;
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      padding: 10px 12px;
+      border: 1px solid #d0d0d0;
+      border-radius: 12px;
+      min-width: 150px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 11px 16px;
+      border: 1px solid #d0d0d0;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #fff;
+      font-size: 16px;
+    }
+
+    button:hover { background: #f6f6f6; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+
+    th, td {
+      border-bottom: 1px solid #eee;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 16px;
+    }
+
+    th { font-size: 14px; color: #444; }
+
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    @media (min-width: 1000px) { .charts { grid-template-columns: 1fr 1fr; } }
+
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid #ddd; font-size: 13px; }
+  </style>
+</head>
+
+<body>
+  <div class="row" style="margin-top: 12px;">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="designType">Design type</label>
+          <select id="designType">
+            <option value="between" selected>Between subjects</option>
+            <option value="within">Repeated measures</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="nFactors">Independent variables</label>
+          <select id="nFactors">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+
+        <div id="level1Wrap">
+          <label for="levels1">Levels (A)</label>
+          <input id="levels1" type="number" min="1" max="50" value="3" />
+        </div>
+
+        <div id="level2Wrap" style="display:none;">
+          <label for="levels2">Levels (B)</label>
+          <input id="levels2" type="number" min="1" max="50" value="2" />
+        </div>
+
+        <div>
+          <label id="sampleSizeLabel" for="sampleSize">Participants per condition</label>
+          <input id="sampleSize" type="number" min="1" max="20000" value="25" />
+          <div id="totalN" class="mono" style="margin-top:6px; font-size:14px; color:#333;"></div>
+        </div>
+
+        <div>
+          <label for="trials">Trials per participant</label>
+          <input id="trials" type="number" min="1" max="500" value="3" />
+        </div>
+
+        <div>
+          <label for="seed">Seed</label>
+          <input id="seed" type="number" placeholder="e.g., 123" />
+        </div>
+
+        <div>
+          <label>&nbsp;</label>
+          <button id="drawBtn">Draw sample</button>
+        </div>
+
+        <div>
+          <label>&nbsp;</label>
+          <button id="downloadBtn">Download CSV</button>
+        </div>
+      </div>
+
+      <div id="withinControls" class="row" style="margin-top: 14px; display:none;">
+        <div>
+          <label for="corrStructure">Correlation structure</label>
+          <select id="corrStructure">
+            <option value="cs" selected>Common correlation (CS)</option>
+            <option value="ar1">AR(1)</option>
+          </select>
+        </div>
+
+        <div>
+          <label id="corrLabel" for="corr">Correlation r</label>
+          <input id="corr" type="number" step="0.05" min="-0.95" max="0.95" value="0.50" />
+        </div>
+
+        <div>
+          <label for="previewSubjects">Spaghetti subjects</label>
+          <input id="previewSubjects" type="number" min="0" max="200" value="60" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 340px;">
+      <div style="font-weight: 700; font-size: 18px;">Condition parameters</div>
+
+      <table id="condTable">
+        <thead>
+          <tr>
+            <th style="width: 30%;">Condition</th>
+            <th style="width: 35%;">Mean</th>
+            <th style="width: 35%;">SD</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card">
+      <div style="font-weight: 700; font-size: 18px; margin-bottom: 8px;">True distributions</div>
+      <div id="distChart" style="height: 340px;"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight: 700; font-size: 18px; margin-bottom: 8px;">Boxplots</div>
+      <div id="boxChart" style="height: 340px;"></div>
+    </div>
+  </div>
+
+  <div class="card" id="spaghettiCard" style="margin-top: 16px; display:none;">
+    <div style="font-weight: 700; font-size: 18px; margin-bottom: 8px;">Spaghetti plot</div>
+    <div id="spaghettiChart" style="height: 340px;"></div>
+  </div>
+
+  <div class="card" style="margin-top: 16px;">
+    <div style="font-weight: 700; font-size: 18px;">Inferential test</div>
+    <div id="analysisPanel" style="margin-top: 10px;"></div>
+  </div>
+
+  <div class="card" style="margin-top: 16px;">
+    <div style="font-weight: 700; font-size: 18px;">Monte Carlo power</div>
+
+    <div class="row" style="margin-top: 10px;">
+      <div>
+        <label for="mcSims">Simulations</label>
+        <input id="mcSims" type="number" min="10" max="1000000" value="1000" />
+      </div>
+
+      <div>
+        <label for="mcAlpha">Alpha</label>
+        <input id="mcAlpha" type="number" step="0.001" min="0.001" max="0.5" value="0.05" />
+      </div>
+
+      <div>
+        <label>&nbsp;</label>
+        <button id="mcBtn">Run Monte Carlo</button>
+      </div>
+
+      <div style="flex:1; min-width: 260px;">
+        <label>Result</label>
+        <div id="mcPanel" class="mono" style="padding: 12px; border: 1px solid #eee; border-radius: 12px;">
+          Not run yet.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const designTypeEl = document.getElementById("designType");
+  const nFactorsEl = document.getElementById("nFactors");
+  const levels1El = document.getElementById("levels1");
+  const levels2El = document.getElementById("levels2");
+  const level2Wrap = document.getElementById("level2Wrap");
+  const sampleSizeEl = document.getElementById("sampleSize");
+  const sampleSizeLabel = document.getElementById("sampleSizeLabel");
+  const trialsEl = document.getElementById("trials");
+  const seedEl = document.getElementById("seed");
+  const drawBtn = document.getElementById("drawBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
+
+  const condTableBody = document.querySelector("#condTable tbody");
+  const analysisPanel = document.getElementById("analysisPanel");
+
+  const withinControls = document.getElementById("withinControls");
+  const corrStructureEl = document.getElementById("corrStructure");
+  const corrEl = document.getElementById("corr");
+  const corrLabel = document.getElementById("corrLabel");
+  const previewSubjectsEl = document.getElementById("previewSubjects");
+
+  const spaghettiCard = document.getElementById("spaghettiCard");
+  const mcSimsEl = document.getElementById("mcSims");
+  const mcAlphaEl = document.getElementById("mcAlpha");
+  const mcBtn = document.getElementById("mcBtn");
+  const mcPanel = document.getElementById("mcPanel");
+  const totalNEl = document.getElementById("totalN");
+
+  function updateTotalN() {
+    const designType = designTypeEl.value;
+    const nFactors = parseInt(nFactorsEl.value, 10);
+    const L1 = clampInt(levels1El.value, 1, 50, 2);
+    const L2 = clampInt(levels2El.value, 1, 50, 2);
+    const levels = (nFactors === 1) ? [L1] : [L1, L2];
+
+    const nConditions = (nFactors === 1) ? levels[0] : (levels[0] * levels[1]);
+    const nPer = clampInt(sampleSizeEl.value, 1, 20000, 25);
+
+    if (designType === "between") {
+      totalNEl.textContent = `Total participants: ${nPer * nConditions}`;
+      totalNEl.style.display = "";
+    } else {
+      totalNEl.textContent = "";
+      totalNEl.style.display = "none";
+    }
+  }
+
+  function clampInt(v, lo, hi, fallback) {
+    const n = parseInt(v, 10);
+    if (Number.isFinite(n) && n >= lo && n <= hi) return n;
+    return fallback;
+  }
+
+  function buildConditionLabels(nFactors, levels) {
+    const labels = [];
+    if (nFactors === 1) {
+      const A = levels[0];
+      for (let i = 1; i <= A; i++) labels.push(`A${i}`);
+      return labels;
+    }
+    const A = levels[0];
+    const B = levels[1];
+    for (let i = 1; i <= A; i++) {
+      for (let j = 1; j <= B; j++) labels.push(`A${i} B${j}`);
+    }
+    return labels;
+  }
+
+  function readExistingParams() {
+    const map = new Map();
+    const rows = condTableBody.querySelectorAll("tr");
+    for (const r of rows) {
+      const label = r.dataset.label;
+      const mean = parseFloat(r.querySelector('input[data-field="mean"]').value);
+      const sd = parseFloat(r.querySelector('input[data-field="sd"]').value);
+      if (label) map.set(label, { mean, sd });
+    }
+    return map;
+  }
+
+  function rebuildConditionTable() {
+    const nFactors = parseInt(nFactorsEl.value, 10);
+    const L1 = clampInt(levels1El.value, 1, 50, 2);
+    const L2 = clampInt(levels2El.value, 1, 50, 2);
+    const levels = (nFactors === 1) ? [L1] : [L1, L2];
+
+    const old = readExistingParams();
+    const labels = buildConditionLabels(nFactors, levels);
+    condTableBody.innerHTML = "";
+
+    for (let idx = 0; idx < labels.length; idx++) {
+      const label = labels[idx];
+      const prev = old.get(label);
+
+      const defaultMean = 10 + idx;
+      const defaultSd = 8;
+
+      const meanVal = (prev && Number.isFinite(prev.mean)) ? prev.mean : defaultMean;
+      const sdVal = (prev && Number.isFinite(prev.sd)) ? prev.sd : defaultSd;
+
+      const tr = document.createElement("tr");
+      tr.dataset.label = label;
+      tr.innerHTML = `
+        <td>${label}</td>
+        <td><input data-field="mean" type="number" step="0.1" value="${meanVal}" style="min-width: 150px;" /></td>
+        <td><input data-field="sd" type="number" step="0.1" min="0.0001" value="${sdVal}" style="min-width: 150px;" /></td>
+      `;
+      condTableBody.appendChild(tr);
+    }
+  }
+
+  function getBasePayload() {
+    const designType = designTypeEl.value;
+    const nFactors = parseInt(nFactorsEl.value, 10);
+    const L1 = clampInt(levels1El.value, 1, 50, 2);
+    const L2 = clampInt(levels2El.value, 1, 50, 2);
+    const levels = (nFactors === 1) ? [L1] : [L1, L2];
+
+    const sampleSize = clampInt(sampleSizeEl.value, 1, 20000, 25);
+    const trials = clampInt(trialsEl.value, 1, 500, 1);
+    const seed = seedEl.value.trim() === "" ? null : parseInt(seedEl.value, 10);
+
+    const corrStructure = corrStructureEl.value;
+    const corr = parseFloat(corrEl.value);
+    const previewSubjects = clampInt(previewSubjectsEl.value, 0, 200, 60);
+
+    const conditions = [];
+    const rows = condTableBody.querySelectorAll("tr");
+    for (const r of rows) {
+      const label = r.dataset.label;
+      const mean = parseFloat(r.querySelector('input[data-field="mean"]').value);
+      const sd = parseFloat(r.querySelector('input[data-field="sd"]').value);
+      conditions.push({
+        label,
+        mean: Number.isFinite(mean) ? mean : 0,
+        sd: Number.isFinite(sd) ? sd : 1
+      });
+    }
+
+    return {
+      design_type: designType,
+      n_factors: nFactors,
+      levels,
+      sample_size: sampleSize,
+      trials_per_participant: trials,
+      seed,
+      conditions,
+      corr_structure: corrStructure,
+      corr,
+      preview_subjects: previewSubjects
+    };
+  }
+
+  function renderDistributions(x, curves) {
+    const traces = Object.entries(curves).map(([label, y]) => ({
+      type: "scatter",
+      mode: "lines",
+      name: label,
+      x: x,
+      y: y
+    }));
+    Plotly.newPlot("distChart", traces, {
+      margin: { t: 8, r: 10, b: 40, l: 55 },
+      xaxis: { title: "Score" },
+      yaxis: { title: "Density" },
+      legend: { orientation: "h" }
+    }, { responsive: true });
+  }
+
+  function renderBoxplots(samples) {
+    const traces = Object.entries(samples).map(([label, ys]) => ({
+      type: "box",
+      name: label,
+      y: ys,
+      boxpoints: "outliers"
+    }));
+    Plotly.newPlot("boxChart", traces, {
+      margin: { t: 8, r: 10, b: 70, l: 55 },
+      yaxis: { title: "Participant scores" },
+      xaxis: { tickangle: -30 }
+    }, { responsive: true });
+  }
+
+  function renderSpaghetti(subjectPreview, conditionOrder) {
+    if (!subjectPreview || subjectPreview.length === 0) {
+      spaghettiCard.style.display = "none";
+      return;
+    }
+    spaghettiCard.style.display = "";
+
+    const x = conditionOrder;
+    const traces = subjectPreview.map((row, idx) => ({
+      type: "scatter",
+      mode: "lines+markers",
+      x: x,
+      y: row,
+      name: `S${idx+1}`,
+      showlegend: false
+    }));
+
+    Plotly.newPlot("spaghettiChart", traces, {
+      margin: { t: 8, r: 10, b: 70, l: 55 },
+      yaxis: { title: "Subject score" },
+      xaxis: { tickangle: -30 }
+    }, { responsive: true });
+  }
+
+  function fmt(x, digits = 4) {
+    if (x === null || x === undefined) return "";
+    if (!Number.isFinite(x)) return String(x);
+    return x.toFixed(digits);
+  }
+
+  function fmtP(p) {
+    if (p === null || p === undefined) return "";
+    if (!Number.isFinite(p)) return String(p);
+    if (p < 0.0001) return "< 0.0001";
+    return p.toFixed(4);
+  }
+
+  function renderAnalysis(analysis) {
+    if (!analysis || analysis.kind === "none") {
+      analysisPanel.innerHTML = `<div>${analysis?.test_name ?? "No test computed."}</div>`;
+      return;
+    }
+
+    if (analysis.kind === "ttest") {
+      analysisPanel.innerHTML = `
+        <div style="font-weight:700;">${analysis.test_name}</div>
+        <div class="mono" style="margin-top:10px;">t(${analysis.df}) = ${fmt(analysis.t)}, p = ${fmtP(analysis.p)}, d = ${fmt(analysis.cohens_d)}</div>
+      `;
+      return;
+    }
+
+    if (analysis.kind === "paired_ttest") {
+      analysisPanel.innerHTML = `
+        <div style="font-weight:700;">${analysis.test_name}</div>
+        <div class="mono" style="margin-top:10px;">t(${analysis.df}) = ${fmt(analysis.t)}, p = ${fmtP(analysis.p)}, d<sub>z</sub> = ${fmt(analysis.cohens_dz)}</div>
+      `;
+      return;
+    }
+
+    if (analysis.kind === "anova1") {
+      analysisPanel.innerHTML = `
+        <div style="font-weight:700;">${analysis.test_name}</div>
+        <div class="mono" style="margin-top:10px;">F(${analysis.df_between}, ${analysis.df_within}) = ${fmt(analysis.F)}, p = ${fmtP(analysis.p)}, η² = ${fmt(analysis.eta2)}</div>
+      `;
+      return;
+    }
+
+    if (analysis.kind === "rm_anova1") {
+      analysisPanel.innerHTML = `
+        <div style="font-weight:700;">${analysis.test_name}</div>
+        <div class="mono" style="margin-top:10px;">F(${analysis.df_cond}, ${analysis.df_error}) = ${fmt(analysis.F)}, p = ${fmtP(analysis.p)}, partial η² = ${fmt(analysis.partial_eta2)}</div>
+      `;
+      return;
+    }
+
+    if (analysis.kind === "anova2") {
+      const rows = analysis.table ?? [];
+      analysisPanel.innerHTML = `
+        <div style="font-weight:700;">${analysis.test_name}</div>
+        <table style="margin-top:10px;">
+          <thead><tr><th>Effect</th><th>F</th><th>p</th></tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${r.effect}</td>
+                <td class="mono">${fmt(r.F)}</td>
+                <td class="mono">${fmtP(r.p)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+      return;
+    }
+
+    if (analysis.kind === "rm_anova2") {
+      const rows = analysis.table ?? [];
+      analysisPanel.innerHTML = `
+        <div style="font-weight:700;">${analysis.test_name}</div>
+        <table style="margin-top:10px;">
+          <thead><tr><th>Effect</th><th>F</th><th>df</th><th>p</th><th>partial η²</th></tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${r.effect}</td>
+                <td class="mono">${fmt(r.F)}</td>
+                <td class="mono">${r.df1}, ${r.df2}</td>
+                <td class="mono">${fmtP(r.p)}</td>
+                <td class="mono">${fmt(r.partial_eta2)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+      return;
+    }
+
+    analysisPanel.innerHTML = `<div>Unsupported analysis.</div>`;
+  }
+
+  async function draw() {
+    const payload = getBasePayload();
+
+    for (const c of payload.conditions) {
+      if (!(c.sd > 0)) {
+        alert(`SD must be > 0 for condition "${c.label}".`);
+        return;
+      }
+    }
+
+    const res = await fetch("/api/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      alert(data.error ?? "Request failed.");
+      return;
+    }
+
+    renderDistributions(data.x, data.curves);
+    renderBoxplots(data.samples);
+    renderAnalysis(data.analysis);
+
+    if (payload.design_type === "within") {
+      renderSpaghetti(data.subject_preview, data.condition_order);
+    } else {
+      spaghettiCard.style.display = "none";
+    }
+  }
+
+  function renderMcResult(data) {
+    if (data.error) {
+      mcPanel.textContent = data.error;
+      return;
+    }
+
+    function line(label, powerObj) {
+      return `${label} power = ${(powerObj.power * 100).toFixed(1)}% (95% CI [${(powerObj.ci95.lo * 100).toFixed(1)}%, ${(powerObj.ci95.hi * 100).toFixed(1)}%])`;
+    }
+
+    if (data.kind === "ttest" || data.kind === "anova1" || data.kind === "paired_ttest" || data.kind === "rm_anova1") {
+//        <div><span class="pill">${data.test_name}</span></div>
+//        <div style="margin-top:10px;">Sims = <span class="mono">${data.n_sims}</span>, α = <span class="mono">${data.alpha}</span></div>
+      mcPanel.innerHTML = `
+        <div style="margin-top:8px;">Power = <span class="mono">${(data.power * 100).toFixed(1)}%</span></div>
+        <div>95% CI = <span class="mono">[${(data.ci95.lo * 100).toFixed(1)}%, ${(data.ci95.hi * 100).toFixed(1)}%]</span></div>
+      `;
+      return;
+    }
+
+    if (data.kind === "anova2" || data.kind === "rm_anova2") {
+      const e = data.effects;
+      mcPanel.innerHTML = `
+        <div><span class="pill">${data.test_name}</span></div>
+        <div style="margin-top:10px;">${line("A", e.A)}</div>
+        <div>${line("B", e.B)}</div>
+        <div>${line("A×B", e.AxB)}</div>
+        <div style="margin-top:8px; font-weight:700;">${line("Any", e.any_effect)}</div>
+      `;
+      return;
+    }
+
+    mcPanel.textContent = "Unexpected result format.";
+  }
+
+  async function runMonteCarlo() {
+    const base = getBasePayload();
+    const nSims = clampInt(mcSimsEl.value, 10, 1000000, 1000);
+    const alpha = parseFloat(mcAlphaEl.value);
+
+    if (!Number.isFinite(alpha) || alpha <= 0 || alpha >= 1) {
+      alert("Alpha must be between 0 and 1.");
+      return;
+    }
+    if (base.sample_size < 2) {
+      alert("Sample size must be at least 2.");
+      return;
+    }
+
+    const payload = { ...base, n_sims: nSims, alpha: alpha };
+
+    mcPanel.textContent = "Running…";
+    const res = await fetch("/api/montecarlo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      renderMcResult({ error: "Request failed." });
+      return;
+    }
+    renderMcResult(data);
+  }
+
+  async function downloadCsv() {
+    const res = await fetch("/api/download.csv");
+    const ct = res.headers.get("content-type") || "";
+
+    if (ct.includes("application/json")) {
+      const data = await res.json();
+      alert(data.error ?? "No dataset available yet.");
+      return;
+    }
+
+    if (!res.ok) {
+      alert("Download failed.");
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    const cd = res.headers.get("content-disposition") || "";
+    let filename = "simulated_data.csv";
+    const m = cd.match(/filename="([^"]+)"/);
+    if (m && m[1]) filename = m[1];
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function syncUI() {
+    const designType = designTypeEl.value;
+    const nFactors = parseInt(nFactorsEl.value, 10);
+
+    level2Wrap.style.display = (nFactors === 2) ? "" : "none";
+    withinControls.style.display = (designType === "within") ? "" : "none";
+    spaghettiCard.style.display = "none";
+
+    if (designType === "within") {
+      sampleSizeLabel.textContent = "Number of subjects";
+    } else {
+      sampleSizeLabel.textContent = "Participants per condition";
+    }
+
+    corrLabel.textContent = (corrStructureEl.value === "cs") ? "Correlation r" : "AR(1) rho";
+    rebuildConditionTable();
+    updateTotalN();
+
+  }
+
+  sampleSizeEl.addEventListener("input", updateTotalN);
+  levels1El.addEventListener("input", updateTotalN);
+  levels2El.addEventListener("input", updateTotalN);
+  nFactorsEl.addEventListener("change", updateTotalN);
+  designTypeEl.addEventListener("change", updateTotalN);
+  
+  designTypeEl.addEventListener("change", syncUI);
+  nFactorsEl.addEventListener("change", syncUI);
+  levels1El.addEventListener("change", rebuildConditionTable);
+  levels2El.addEventListener("change", rebuildConditionTable);
+  corrStructureEl.addEventListener("change", syncUI);
+
+  drawBtn.addEventListener("click", draw);
+  mcBtn.addEventListener("click", runMonteCarlo);
+  downloadBtn.addEventListener("click", downloadCsv);
+
+  syncUI();
+  draw();
+</script>
+
+</body>
+</html>
